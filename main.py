@@ -186,6 +186,28 @@ def get_mandal_abstract(db: Session = Depends(get_db)):
 
 
 # -------------------------------------------------------------
+# Stock & Inventory APIs
+# -------------------------------------------------------------
+@app.get("/api/stock", response_model=schemas.StockOverview)
+def get_stock_overview(db: Session = Depends(get_db)):
+    return crud.get_stock_overview(db)
+
+
+@app.post("/api/stock", response_model=schemas.StockOut, status_code=status.HTTP_201_CREATED)
+def add_stock_batch(stock_in: schemas.StockCreate, db: Session = Depends(get_db)):
+    stock = crud.add_stock(db, stock_in)
+    return stock
+
+
+@app.delete("/api/stock/{stock_id}")
+def delete_stock_batch(stock_id: int, db: Session = Depends(get_db)):
+    success = crud.delete_stock(db, stock_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Stock batch not found")
+    return {"success": True, "message": f"Stock batch #{stock_id} deleted"}
+
+
+# -------------------------------------------------------------
 # Export APIs (Excel & CSV)
 # -------------------------------------------------------------
 @app.get("/api/export/excel")
@@ -207,7 +229,8 @@ def export_excel(
         from_date=from_date,
         to_date=to_date,
     )
-    excel_stream = export.generate_excel_export(issues)
+    stocks = crud.get_stocks(db)
+    excel_stream = export.generate_excel_export(issues, stocks=stocks)
     filename = f"DSC_Distribution_Ledger_{datetime.date.today().strftime('%Y%m%d')}.xlsx"
     return StreamingResponse(
         excel_stream,

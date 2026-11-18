@@ -8,7 +8,7 @@ from openpyxl.utils import get_column_letter
 from backend.models import DscIssue, DscPayment
 
 
-def generate_excel_export(issues: List[DscIssue]) -> io.BytesIO:
+def generate_excel_export(issues: List[DscIssue], stocks: list = None) -> io.BytesIO:
     wb = Workbook()
     
     # -------------------------------------------------------------
@@ -236,6 +236,67 @@ def generate_excel_export(issues: List[DscIssue]) -> io.BytesIO:
         max_len = max(len(str(cell.value or "")) for cell in col)
         col_letter = get_column_letter(col[0].column)
         ws_mandals.column_dimensions[col_letter].width = max(max_len + 4, 12)
+
+    # -------------------------------------------------------------
+    # 4. Sheet: Stock & Inventory Register
+    # -------------------------------------------------------------
+    if stocks is not None:
+        ws_stock = wb.create_sheet(title="Stock & Inventory")
+        stock_header_fill = PatternFill(start_color="312E81", end_color="312E81", fill_type="solid") # Dark Purple/Indigo
+
+        s_headers = [
+            "Batch ID",
+            "Stock Date",
+            "Token Variant",
+            "Quantity Procured",
+            "Unit Cost (₹)",
+            "Total Inward Cost (₹)",
+            "Supplier / Vendor",
+            "Invoice / Batch Ref",
+            "Notes / Remarks"
+        ]
+
+        ws_stock.append(s_headers)
+        for col_idx in range(1, len(s_headers) + 1):
+            cell = ws_stock.cell(row=1, column=col_idx)
+            cell.font = header_font
+            cell.fill = stock_header_fill
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+        ws_stock.row_dimensions[1].height = 28
+
+        s_row_idx = 2
+        for st in stocks:
+            total_c = round(st.quantity * st.unit_cost, 2)
+            ws_stock.append([
+                st.id,
+                st.stock_date.strftime("%d-%m-%Y") if st.stock_date else "",
+                st.token_variant,
+                st.quantity,
+                st.unit_cost,
+                total_c,
+                st.supplier_name or "",
+                st.invoice_ref or "",
+                st.notes or ""
+            ])
+            for col_idx in range(1, len(s_headers) + 1):
+                cell = ws_stock.cell(row=s_row_idx, column=col_idx)
+                cell.border = thin_border
+                cell.alignment = Alignment(vertical="center")
+                if col_idx in [1, 2, 3]:
+                    cell.alignment = Alignment(horizontal="center", vertical="center")
+                elif col_idx in [4]:
+                    cell.alignment = Alignment(horizontal="center", vertical="center")
+                elif col_idx in [5, 6]:
+                    cell.alignment = Alignment(horizontal="right", vertical="center")
+                    cell.number_format = "₹#,##0.00"
+
+            s_row_idx += 1
+
+        for col in ws_stock.columns:
+            max_len = max(len(str(cell.value or "")) for cell in col)
+            col_letter = get_column_letter(col[0].column)
+            ws_stock.column_dimensions[col_letter].width = max(max_len + 4, 12)
 
     stream = io.BytesIO()
     wb.save(stream)

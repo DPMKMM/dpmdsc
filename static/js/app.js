@@ -109,7 +109,32 @@ createApp({
 
     // Delete Confirmation Modal State
     const showDeleteModal = ref(false);
-    const itemToDelete = ref(null); // { type: 'issue'|'payment', id: number, label: string }
+    const itemToDelete = ref(null); // { type: 'issue'|'payment'|'stock', id: number, label: string }
+
+    // Stock Inventory State
+    const stock = ref({
+      total_procured: 0,
+      total_issued: 0,
+      total_available: 0,
+      hyp_procured: 0,
+      hyp_issued: 0,
+      hyp_available: 0,
+      proxkey_procured: 0,
+      proxkey_issued: 0,
+      proxkey_available: 0,
+      total_investment: 0,
+      batches: []
+    });
+    const showStockModal = ref(false);
+    const stockForm = ref({
+      stock_date: new Date().toISOString().split("T")[0],
+      token_variant: "HYP",
+      quantity: 10,
+      unit_cost: 0,
+      supplier_name: "",
+      invoice_ref: "",
+      notes: ""
+    });
 
     // -----------------------------------------------------------------
     // Currency & Date Formatters (Indian Locale)
@@ -247,8 +272,71 @@ createApp({
       }
     };
 
+    const fetchStock = async () => {
+      try {
+        const res = await fetch("/api/stock");
+        stock.value = await res.json();
+      } catch (err) {
+        console.error("Failed to load stock data", err);
+      }
+    };
+
     const fetchData = async () => {
-      await Promise.all([fetchMandals(), fetchStats(), fetchIssues(), fetchMandalSummaries()]);
+      await Promise.all([fetchMandals(), fetchStats(), fetchIssues(), fetchMandalSummaries(), fetchStock()]);
+    };
+
+    const openAddStockModal = () => {
+      stockForm.value = {
+        stock_date: new Date().toISOString().split("T")[0],
+        token_variant: "HYP",
+        quantity: 10,
+        unit_cost: 0,
+        supplier_name: "",
+        invoice_ref: "",
+        notes: ""
+      };
+      showStockModal.value = true;
+      nextTick(() => {
+        if (window.lucide) window.lucide.createIcons();
+      });
+    };
+
+    const saveStock = async () => {
+      const qty = Number(stockForm.value.quantity) || 0;
+      if (qty <= 0) {
+        showToast("Please enter a valid stock quantity of at least 1", "error");
+        return;
+      }
+      try {
+        const res = await fetch("/api/stock", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            stock_date: stockForm.value.stock_date,
+            token_variant: stockForm.value.token_variant,
+            quantity: qty,
+            unit_cost: Number(stockForm.value.unit_cost) || 0,
+            supplier_name: stockForm.value.supplier_name.trim(),
+            invoice_ref: stockForm.value.invoice_ref.trim(),
+            notes: stockForm.value.notes.trim() || null
+          })
+        });
+        if (!res.ok) throw new Error("Failed to record inward stock");
+        showToast(`Added ${qty} ${stockForm.value.token_variant} tokens to inventory`, "success");
+        showStockModal.value = false;
+        await Promise.all([fetchStock(), fetchStats()]);
+      } catch (err) {
+        showToast(err.message || "Failed to add stock", "error");
+      }
+    };
+
+    const confirmDeleteStock = (batch) => {
+      itemToDelete.value = {
+        type: "stock",
+        id: batch.id,
+        label: `Stock Batch #${batch.id} (${batch.quantity} ${batch.token_variant} tokens)`
+      };
+      showDeleteModal.value = true;
     };
 
     // -----------------------------------------------------------------
@@ -513,6 +601,10 @@ createApp({
             activeIssue.value = await updatedRes.json();
             newPayment.value.amount_paid = activeIssue.value.balance_amount;
           }
+        } else if (itemToDelete.value.type === "stock") {
+          const res = await fetch(`/api/stock/${itemToDelete.value.id}`, { method: "DELETE" });
+          if (!res.ok) throw new Error("Failed to delete stock batch");
+          showToast("Stock batch deleted", "info");
         }
 
         showDeleteModal.value = false;
@@ -655,6 +747,13 @@ createApp({
       showDeleteModal,
       itemToDelete,
       executeDelete,
+      // Stock Inventory
+      stock,
+      showStockModal,
+      stockForm,
+      openAddStockModal,
+      saveStock,
+      confirmDeleteStock,
       // Export
       exportToExcel,
       exportToCsv

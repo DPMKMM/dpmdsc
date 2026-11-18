@@ -2,8 +2,8 @@ import datetime
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
-from backend.models import DscIssue, DscPayment
-from backend.schemas import IssueCreate, IssueUpdate, PaymentCreate
+from backend.models import DscIssue, DscPayment, DscStock
+from backend.schemas import IssueCreate, IssueUpdate, PaymentCreate, StockCreate
 
 
 def get_issues(
@@ -164,6 +164,16 @@ def get_dashboard_stats(db: Session) -> Dict[str, Any]:
         if st in status_counts:
             status_counts[st] += 1
 
+    # Stock metrics
+    stocks = db.query(DscStock).all()
+    hyp_procured = sum(s.quantity for s in stocks if s.token_variant == "HYP")
+    proxkey_procured = sum(s.quantity for s in stocks if s.token_variant == "Proxkey")
+    total_procured = hyp_procured + proxkey_procured
+
+    hyp_available = hyp_procured - hyp_count
+    proxkey_available = proxkey_procured - proxkey_count
+    total_available = total_procured - total_dsc_count
+
     return {
         "total_records": total_records,
         "total_dsc_count": total_dsc_count,
@@ -174,6 +184,17 @@ def get_dashboard_stats(db: Session) -> Dict[str, Any]:
         "total_balance": total_balance,
         "collection_rate": collection_rate,
         "status_counts": status_counts,
+        "stock": {
+            "total_procured": total_procured,
+            "total_issued": total_dsc_count,
+            "total_available": total_available,
+            "hyp_procured": hyp_procured,
+            "hyp_issued": hyp_count,
+            "hyp_available": hyp_available,
+            "proxkey_procured": proxkey_procured,
+            "proxkey_issued": proxkey_count,
+            "proxkey_available": proxkey_available,
+        }
     }
 
 
@@ -233,3 +254,83 @@ def get_gps_by_mandal(db: Session, mandal_name: Optional[str] = None) -> List[st
         query = query.filter(DscIssue.mandal_name == mandal_name.strip())
     results = query.order_by(DscIssue.gram_panchayat_name.asc()).all()
     return [r[0] for r in results if r[0]]
+
+
+# -------------------------------------------------------------
+# Stock & Inventory Operations
+# -------------------------------------------------------------
+def add_stock(db: Session, stock_in: StockCreate) -> DscStock:
+    stock = DscStock(
+        stock_date=stock_in.stock_date,
+        token_variant=stock_in.token_variant.strip(),
+        quantity=stock_in.quantity,
+        unit_cost=round(stock_in.unit_cost, 2),
+        supplier_name=stock_in.supplier_name.strip() if stock_in.supplier_name else "",
+        invoice_ref=stock_in.invoice_ref.strip() if stock_in.invoice_ref else "",
+        notes=stock_in.notes.strip() if stock_in.notes else None,
+    )
+    db.add(stock)
+    db.commit()
+    db.refresh(stock)
+    return stock
+
+
+def get_stocks(db: Session) -> List[DscStock]:
+    return db.query(DscStock).order_by(DscStock.stock_date.desc(), DscStock.id.desc()).all()
+
+
+def delete_stock(db: Session, stock_id: int) -> bool:
+    stock = db.query(DscStock).filter(DscStock.id == stock_id).first()
+    if not stock:
+        return False
+    db.delete(stock)
+    db.commit()
+    return True
+
+
+def get_stock_overview(db: Session) -> Dict[str, Any]:
+    stocks = db.query(DscStock).order_by(DscStock.stock_date.desc(), DscStock.id.desc()).all()
+    issues = db.query(DscIssue).all()
+
+    hyp_procured = sum(s.quantity for s in stocks if s.token_variant == "HYP")
+    proxkey_procured = sum(s.quantity for s in stocks if s.token_variant == "Proxkey")
+    total_procured = hyp_procured + proxkey_procured
+
+    hyp_issued = sum(i.dsc_count for i in issues if i.token_variant == "HYP")
+    proxkey_issued = sum(i.dsc_count for i in issues if i.token_variant == "Proxkey")
+    total_issued = hyp_issued + proxkey_issued
+
+    hyp_available = hyp_procured - hyp_issued
+    proxkey_available = proxkey_procured - proxkey_issued
+    total_available = total_procured - total_issued
+
+    total_investment = round(sum(s.quantity * s.unit_cost for s in stocks), 2)
+
+    batches_data = []
+    for s in stocks:
+        batches_data.append({
+            "id": s.id,
+            "stock_date": s.stock_date,
+            "token_variant": s.token_variant,
+            "quantity": s.quantity,
+            "unit_cost": s.unit_cost,
+            "total_cost": round(s.quantity * s.unit_cost, 2),
+            "supplier_name": s.supplier_name or "",
+            "invoice_ref": s.invoice_ref or "",
+            "notes": s.notes or "",
+            "created_at": s.created_at,
+        })
+
+    return {
+        "total_procured": total_procured,
+        "total_issued": total_issued,
+        "total_available": total_available,
+        "hyp_procured": hyp_procured,
+        "hyp_issued": hyp_issued,
+        "hyp_available": hyp_available,
+        "proxkey_procured": proxkey_procured,
+        "proxkey_issued": proxkey_issued,
+        "proxkey_available": proxkey_available,
+        "total_investment": total_investment,
+        "batches": batches_data,
+    }

@@ -60,3 +60,22 @@ class DscPayment(Base):
 
     # Relationships
     issue = relationship("DscIssue", back_populates="payments")
+
+
+class DscStock(Base):
+    __tablename__ = "dsc_stocks"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    stock_date = Column(Date, nullable=False, default=datetime.date.today)
+    token_variant = Column(String(20), nullable=False, default="HYP")  # "HYP" or "Proxkey"
+    quantity = Column(Integer, nullable=False, default=1)
+    unit_cost = Column(Float, nullable=False, default=0.0)  # Purchase cost in ₹
+    supplier_name = Column(String(150), nullable=True, default="")
+    invoice_ref = Column(String(100), nullable=True, default="")
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    @property
+    def total_cost(self) -> float:
+        return round((self.quantity or 0) * (self.unit_cost or 0.0), 2)
+

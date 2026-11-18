@@ -1,5 +1,5 @@
 import datetime
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -92,6 +92,53 @@ class DashboardStats(BaseModel):
     total_balance: float
     collection_rate: float
     status_counts: Dict[str, int]
+    stock: Optional[Dict[str, Any]] = None
+
+
+# Stock Schemas
+class StockBase(BaseModel):
+    stock_date: datetime.date = Field(default_factory=datetime.date.today)
+    token_variant: str = Field(default="HYP")  # "HYP" or "Proxkey"
+    quantity: int = Field(default=1, ge=1)
+    unit_cost: float = Field(default=0.0, ge=0)
+    supplier_name: Optional[str] = ""
+    invoice_ref: Optional[str] = ""
+    notes: Optional[str] = None
+
+    @field_validator("token_variant")
+    @classmethod
+    def validate_variant(cls, v: str) -> str:
+        v_clean = v.strip()
+        if v_clean not in ["HYP", "Proxkey"]:
+            raise ValueError("token_variant must be strictly 'HYP' or 'Proxkey'")
+        return v_clean
+
+
+class StockCreate(StockBase):
+    pass
+
+
+class StockOut(StockBase):
+    id: int
+    total_cost: float
+    created_at: datetime.datetime
+
+    class Config:
+        from_attributes = True
+
+
+class StockOverview(BaseModel):
+    total_procured: int
+    total_issued: int
+    total_available: int
+    hyp_procured: int
+    hyp_issued: int
+    hyp_available: int
+    proxkey_procured: int
+    proxkey_issued: int
+    proxkey_available: int
+    total_investment: float
+    batches: List[StockOut] = []
 
 
 # Mandal Summary Schema
