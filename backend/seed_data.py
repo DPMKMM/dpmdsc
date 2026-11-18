@@ -1,3 +1,7 @@
+import datetime
+from sqlalchemy.orm import Session
+from backend.models import DscIssue, DscPayment, DscStock
+
 KHAMMAM_MANDALS = [
     "Bonakal",
     "Chinthakani",
@@ -30,6 +34,6 @@ DEFAULT_DESIGNATIONS = [
 ]
 
 
-def seed_initial_data_if_empty(db=None):
-    # Production: No dummy data
+def seed_initial_data_if_empty(db: Session):
+    # No dummy data - real user data only
     pass

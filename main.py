@@ -45,6 +45,12 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)
+    db = SessionLocal()
+    try:
+        from backend.seed_data import seed_initial_data_if_empty
+        seed_initial_data_if_empty(db)
+    finally:
+        db.close()
 
 
 # -------------------------------------------------------------
