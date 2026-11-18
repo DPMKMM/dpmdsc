@@ -14,7 +14,7 @@ from backend.seed_data import KHAMMAM_MANDALS, DEFAULT_DESIGNATIONS
 # Create tables if not present (clean production database)
 Base.metadata.create_all(bind=engine)
 
-ADMIN_PIN = os.getenv("ADMIN_PIN", "1234")
+ADMIN_PIN = os.getenv("ADMIN_PIN", "7159")
 
 app = FastAPI(
     title="DSC & USB Token Distribution Tracker",

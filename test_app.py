@@ -18,7 +18,7 @@ def test_full_application_flow():
     assert res_auth_fail.json()["success"] is False
     print("✔ Admin Auth Failure Check: Passed")
 
-    res_auth_ok = client.post("/api/auth/verify", json={"pin": "1234"})
+    res_auth_ok = client.post("/api/auth/verify", json={"pin": "7159"})
     assert res_auth_ok.status_code == 200
     assert res_auth_ok.json()["success"] is True
     print("✔ Admin Auth Success Check: Passed")
