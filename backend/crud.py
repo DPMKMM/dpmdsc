@@ -62,7 +62,7 @@ def create_issue(db: Session, issue_in: IssueCreate) -> DscIssue:
         gram_panchayat_name=issue_in.gram_panchayat_name.strip() if issue_in.gram_panchayat_name else "",
         recipient_name=issue_in.recipient_name.strip(),
         designation=issue_in.designation.strip(),
-        phone_number=issue_in.phone_number.strip(),
+        phone_number=issue_in.phone_number.strip() if issue_in.phone_number else "",
         token_variant=issue_in.token_variant.strip(),
         dsc_count=issue_in.dsc_count,
         unit_price=round(issue_in.unit_price, 2),

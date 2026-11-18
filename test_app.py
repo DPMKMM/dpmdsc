@@ -12,16 +12,16 @@ client = TestClient(app)
 def test_full_application_flow():
     print("=== STARTING COMPLETE DSC TOKEN APPLICATION TEST SUITE ===")
 
-    # 1. Test Admin Authentication
-    res_auth_fail = client.post("/api/auth/verify", json={"pin": "wrong_pin"})
+    # 1. Test Admin Authentication (Username & Password)
+    res_auth_fail = client.post("/api/auth/verify", json={"username": "nareshdpm", "password": "wrong_password"})
     assert res_auth_fail.status_code == 200
     assert res_auth_fail.json()["success"] is False
     print("✔ Admin Auth Failure Check: Passed")
 
-    res_auth_ok = client.post("/api/auth/verify", json={"pin": "7159"})
+    res_auth_ok = client.post("/api/auth/verify", json={"username": "nareshdpm", "password": "7159"})
     assert res_auth_ok.status_code == 200
     assert res_auth_ok.json()["success"] is True
-    print("✔ Admin Auth Success Check: Passed")
+    print("✔ Admin Auth (Username: nareshdpm, Password: 7159) Success Check: Passed")
 
     # 2. Test Metadata
     res_mandals = client.get("/api/metadata/mandals")
@@ -88,6 +88,23 @@ def test_full_application_flow():
     assert res_optional_gp.status_code == 201
     assert res_optional_gp.json()["gram_panchayat_name"] == ""
     print("✔ Issue Creation with Optional (empty) GP Name: Passed")
+
+    # 4c. Test issue creation with Optional (empty) Phone Number
+    optional_phone_payload = {
+        "token_given_date": str(datetime.date.today()),
+        "mandal_name": "Bonakal",
+        "gram_panchayat_name": "Allinagaram",
+        "recipient_name": "M. Krishna",
+        "designation": "Sarpanch",
+        "phone_number": "",
+        "token_variant": "Proxkey",
+        "dsc_count": 1,
+        "unit_price": 1500.0,
+    }
+    res_optional_phone = client.post("/api/issues", json=optional_phone_payload)
+    assert res_optional_phone.status_code == 201
+    assert res_optional_phone.json()["phone_number"] == ""
+    print("✔ Issue Creation with Optional (empty) Mobile Number: Passed")
 
     # 5. Record a 2nd Date-Wise Part-Payment Installment
     payment_payload = {

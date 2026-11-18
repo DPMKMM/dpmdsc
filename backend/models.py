@@ -13,7 +13,7 @@ class DscIssue(Base):
     gram_panchayat_name = Column(String(150), nullable=True, index=True, default="")
     recipient_name = Column(String(150), nullable=False)
     designation = Column(String(100), nullable=False, default="Panchayat Secretary")
-    phone_number = Column(String(20), nullable=False)
+    phone_number = Column(String(20), nullable=True, default="")
     token_variant = Column(String(20), nullable=False, default="HYP")  # "HYP" or "Proxkey"
     dsc_count = Column(Integer, nullable=False, default=1)
     unit_price = Column(Float, nullable=False, default=1500.0)

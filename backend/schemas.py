@@ -31,7 +31,7 @@ class IssueBase(BaseModel):
     gram_panchayat_name: Optional[str] = Field(default="")
     recipient_name: str = Field(..., min_length=1)
     designation: str = Field(default="Panchayat Secretary")
-    phone_number: str = Field(..., min_length=5)
+    phone_number: Optional[str] = Field(default="")
     token_variant: str = Field(default="HYP")  # "HYP" or "Proxkey"
     dsc_count: int = Field(default=1, ge=1)
     unit_price: float = Field(default=1500.0, ge=0)
@@ -109,7 +109,9 @@ class MandalSummary(BaseModel):
 
 # Login / Auth Schemas
 class AuthRequest(BaseModel):
-    pin: str
+    username: Optional[str] = None
+    password: Optional[str] = None
+    pin: Optional[str] = None
 
 
 class AuthResponse(BaseModel):

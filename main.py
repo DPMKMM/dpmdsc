@@ -14,7 +14,9 @@ from backend.seed_data import KHAMMAM_MANDALS, DEFAULT_DESIGNATIONS
 # Create tables if not present (clean production database)
 Base.metadata.create_all(bind=engine)
 
-ADMIN_PIN = os.getenv("ADMIN_PIN", "7159")
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "nareshdpm")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "7159")
+ADMIN_PIN = ADMIN_PASSWORD
 
 app = FastAPI(
     title="DSC & USB Token Distribution Tracker",
@@ -47,8 +49,16 @@ def get_dashboard():
 # Authentication API
 # -------------------------------------------------------------
 @app.post("/api/auth/verify", response_model=schemas.AuthResponse)
-def verify_admin_pin(req: schemas.AuthRequest):
-    if req.pin == ADMIN_PIN:
+def verify_admin_login(req: schemas.AuthRequest):
+    # Support username and password authentication
+    if req.username and req.password:
+        if req.username.strip().lower() == ADMIN_USERNAME.lower() and req.password.strip() == ADMIN_PASSWORD:
+            return schemas.AuthResponse(
+                success=True,
+                token="admin-authorized-session-key",
+                message="Login successful. Welcome!",
+            )
+    elif req.pin and req.pin.strip() == ADMIN_PASSWORD:
         return schemas.AuthResponse(
             success=True,
             token="admin-authorized-session-key",
@@ -57,7 +67,7 @@ def verify_admin_pin(req: schemas.AuthRequest):
     return schemas.AuthResponse(
         success=False,
         token=None,
-        message="Invalid Admin PIN. Please try again.",
+        message="Invalid Username or Password. Please try again.",
     )
 
 

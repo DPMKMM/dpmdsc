@@ -4,7 +4,7 @@
 
 * **GitHub Repository:** [https://github.com/DPMKMM/dpmdsc](https://github.com/DPMKMM/dpmdsc)
 * **Production Render URL:** [https://dpmdsc.onrender.com](https://dpmdsc.onrender.com)
-* **Default Admin PIN:** `1234`
+* **Admin Credentials:** Username: `nareshdpm` | Password: `7159`
 
 A responsive, production-ready web application for tracking Digital Signature Certificate (DSC) and physical USB token (**HYP** and **Proxkey**) handovers across Mandals and Gram Panchayats (specifically pre-configured for Khammam District's 20 rural mandals), featuring a date-wise part-payment ledger, balance tracker, and multi-sheet Excel / CSV exports.
 

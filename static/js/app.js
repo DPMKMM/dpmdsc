@@ -6,8 +6,11 @@ createApp({
     // Authentication & State
     // -----------------------------------------------------------------
     const isAuthenticated = ref(false);
+    const usernameInput = ref("");
+    const passwordInput = ref("");
     const pinInput = ref("");
     const pinError = ref("");
+    const loginError = ref("");
     const activeTab = ref("ledger"); // 'ledger' or 'mandals'
     const isLoading = ref(false);
 
@@ -141,28 +144,39 @@ createApp({
       }
     };
 
-    const verifyPin = async () => {
+    const login = async () => {
       try {
+        const payload = usernameInput.value ? {
+          username: usernameInput.value.trim(),
+          password: passwordInput.value.trim()
+        } : {
+          pin: pinInput.value.trim()
+        };
+
         const res = await fetch("/api/auth/verify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pin: pinInput.value.trim() })
+          body: JSON.stringify(payload)
         });
         const data = await res.json();
         if (data.success) {
           sessionStorage.setItem("dsc_auth_token", data.token);
           isAuthenticated.value = true;
+          loginError.value = "";
           pinError.value = "";
-          pinInput.value = "";
-          showToast("Access granted. Welcome!", "success");
+          passwordInput.value = "";
+          showToast("Welcome " + (usernameInput.value || "Admin") + "! Access granted.", "success");
           fetchData();
         } else {
-          pinError.value = data.message || "Invalid PIN";
+          loginError.value = data.message || "Invalid Username or Password";
+          pinError.value = data.message || "Invalid credentials";
         }
       } catch (err) {
-        pinError.value = "Failed to connect to server";
+        loginError.value = "Failed to connect to server";
       }
     };
+
+    const verifyPin = login;
 
     const logout = () => {
       sessionStorage.removeItem("dsc_auth_token");
@@ -323,10 +337,6 @@ createApp({
         showToast("Recipient person's name is required", "error");
         return;
       }
-      if (!issueForm.value.phone_number.trim()) {
-        showToast("Mobile number is required", "error");
-        return;
-      }
 
       const payload = {
         token_given_date: issueForm.value.token_given_date,
@@ -334,7 +344,7 @@ createApp({
         gram_panchayat_name: issueForm.value.gram_panchayat_name ? issueForm.value.gram_panchayat_name.trim() : "",
         recipient_name: issueForm.value.recipient_name.trim(),
         designation: issueForm.value.designation,
-        phone_number: issueForm.value.phone_number.trim(),
+        phone_number: issueForm.value.phone_number ? issueForm.value.phone_number.trim() : "",
         token_variant: issueForm.value.token_variant,
         dsc_count: Number(issueForm.value.dsc_count) || 1,
         unit_price: Number(issueForm.value.unit_price) || 1500,
@@ -597,6 +607,10 @@ createApp({
 
     return {
       isAuthenticated,
+      usernameInput,
+      passwordInput,
+      loginError,
+      login,
       pinInput,
       pinError,
       verifyPin,
