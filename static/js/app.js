@@ -206,7 +206,13 @@ createApp({
     const logout = () => {
       sessionStorage.removeItem("dsc_auth_token");
       isAuthenticated.value = false;
-      showToast("Session locked", "info");
+      usernameInput.value = "";
+      passwordInput.value = "";
+      loginError.value = "";
+      showToast("Logged out successfully", "info");
+      nextTick(() => {
+        if (window.lucide) window.lucide.createIcons();
+      });
     };
 
     // -----------------------------------------------------------------
@@ -347,7 +353,7 @@ createApp({
       editingIssueId.value = null;
       issueForm.value = {
         token_given_date: new Date().toISOString().split("T")[0],
-        mandal_name: filters.value.mandal || (mandals.value[0] || "Khammam Rural"),
+        mandal_name: filters.value.mandal || (mandals.value[0] || ""),
         custom_mandal: "",
         gram_panchayat_name: "",
         recipient_name: "",
