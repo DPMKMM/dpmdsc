@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DSC & USB Token Distribution Tracker | Khammam District</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a',
+            },
+            hyp: {
+              DEFAULT: '#6366f1',
+              dark: '#4f46e5',
+            },
+            prox: {
+              DEFAULT: '#0d9488',
+              dark: '#0f766e',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Vue 3 CDN -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased">
+
+  <div id="app" class="flex-1 flex flex-col" v-cloak>
+
+    <!-- ------------------------------------------------------------- -->
+    <!-- AUTHENTICATION PIN OVERLAY (If locked)                         -->
+    <!-- ------------------------------------------------------------- -->
+    <div v-if="!isAuthenticated" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 sm:p-8 border border-slate-100 text-center animate-in fade-in zoom-in duration-200">
+        <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-inner">
+          <i data-lucide="shield-check" class="w-8 h-8"></i>
+        </div>
+        <h2 class="text-2xl font-bold text-slate-900 mb-1">Administrative Access</h2>
+        <p class="text-sm text-slate-500 mb-6">Enter Admin PIN to manage DSC distribution and payment ledgers</p>
+
+        <form @submit.prevent="verifyPin" class="space-y-4">
+          <div class="relative">
+            <input 
+              type="password" 
+              v-model="pinInput" 
+              maxlength="8" 
+              placeholder="Enter PIN (Default: 1234)" 
+              class="w-full text-center text-2xl tracking-widest font-mono py-3 px-4 rounded-xl border border-slate-300 focus:ring-4 focus:ring-blue-100 focus:border-blue-600 outline-none transition"
+              autofocus
+            />
+          </div>
+          
+          <div v-if="pinError" class="text-rose-600 text-sm font-medium bg-rose-50 p-2.5 rounded-lg border border-rose-200">
+            {{ pinError }}
+          </div>
+
+          <button 
+            type="submit" 
+            class="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold rounded-xl shadow-lg shadow-blue-500/25 transition duration-150 flex items-center justify-center space-x-2"
+          >
+            <span>Unlock Dashboard</span>
+            <i data-lucide="arrow-right" class="w-5 h-5"></i>
+          </button>
+        </form>
+
+        <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-center space-x-1 text-xs text-slate-400">
+          <i data-lucide="info" class="w-3.5 h-3.5"></i>
+          <span>Default System PIN is <strong>1234</strong></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ------------------------------------------------------------- -->
+    <!-- MAIN APPLICATION (When unlocked)                              -->
+    <!-- ------------------------------------------------------------- -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16 sm:h-20">
+          
+          <!-- Logo & Title -->
+          <div class="flex items-center space-x-3.5">
+            <div class="w-10 h-10 sm:w-12 sm:h-12 bg-linear-to-tr from-blue-700 to-indigo-600 text-white rounded-xl flex items-center justify-center shadow-md shadow-blue-500/20">
+              <i data-lucide="key-round" class="w-5 h-5 sm:w-6 sm:h-6"></i>
+            </div>
+            <div>
+              <div class="flex items-center space-x-2">
+                <h1 class="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">DSC & USB Token Ledger</h1>
+                <span class="hidden sm:inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                  Khammam Rural
+                </span>
+              </div>
+              <p class="text-xs text-slate-500 font-medium hidden sm:block">Gram Panchayat Digital Signatures & Installment Payment Tracker</p>
+            </div>
+          </div>
+
+          <!-- Top Actions -->
+          <div class="flex items-center space-x-2 sm:space-x-3">
+            
+            <!-- Export to Excel Button -->
+            <button 
+              @click="exportToExcel"
+              title="Download Excel Workbook (.xlsx)"
+              class="inline-flex items-center space-x-1.5 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-700 text-xs sm:text-sm font-semibold rounded-lg border border-emerald-200 transition"
+            >
+              <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-600"></i>
+              <span class="hidden md:inline">Export Excel</span>
+              <span class="md:hidden">Excel</span>
+            </button>
+
+            <!-- Export to CSV Button -->
+            <button 
+              @click="exportToCsv"
+              title="Download CSV file"
+              class="hidden sm:inline-flex items-center space-x-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm font-semibold rounded-lg border border-slate-200 transition"
+            >
+              <i data-lucide="file-text" class="w-4 h-4 text-slate-500"></i>
+              <span>CSV</span>
+            </button>
+
+            <!-- Issue New Token Primary Action -->
+            <button 
+              @click="openNewIssueModal"
+              class="inline-flex items-center space-x-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs sm:text-sm font-semibold rounded-lg shadow-sm shadow-blue-500/20 transition"
+            >
+              <i data-lucide="plus-circle" class="w-4 h-4"></i>
+              <span>+ Issue Token</span>
+            </button>
+
+            <!-- Lock App / Logout -->
+            <button 
+              @click="logout"
+              title="Lock Admin Session"
+              class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+            >
+              <i data-lucide="lock" class="w-4 h-4"></i>
+            </button>
+
+          </div>
+        </div>
+
+        <!-- Secondary Navigation Tabs -->
+        <div class="flex space-x-8 border-t border-slate-100 -mb-px">
+          <button 
+            @click="activeTab = 'ledger'" 
+            :class="activeTab === 'ledger' ? 'border-blue-600 text-blue-600 font-bold' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 font-medium'"
+            class="py-3 px-1 border-b-2 text-sm flex items-center space-x-2 transition"
+          >
+            <i data-lucide="table" class="w-4 h-4"></i>
+            <span>Distribution Ledger</span>
+            <span class="ml-1.5 px-2 py-0.5 rounded-full text-xs font-mono font-bold bg-slate-100 text-slate-600">
+              {{ issues.length }}
+            </span>
+          </button>
+
+          <button 
+            @click="activeTab = 'mandals'" 
+            :class="activeTab === 'mandals' ? 'border-blue-600 text-blue-600 font-bold' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 font-medium'"
+            class="py-3 px-1 border-b-2 text-sm flex items-center space-x-2 transition"
+          >
+            <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+            <span>Mandal-Wise Abstract</span>
+            <span class="ml-1.5 px-2 py-0.5 rounded-full text-xs font-mono font-bold bg-slate-100 text-slate-600">
+              {{ mandalSummaries.length }}
+            </span>
+          </button>
+        </div>
+
+      </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 flex-1 w-full">
+
+      <!-- ------------------------------------------------------------- -->
+      <!-- TOP SUMMARY KPI CARDS                                         -->
+      <!-- ------------------------------------------------------------- -->
+      <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        <!-- Card 1: Total DSCs Issued -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total DSCs Handed Over</span>
+            <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <i data-lucide="usb" class="w-4 h-4"></i>
+            </div>
+          </div>
+          <div class="flex items-baseline space-x-2">
+            <span class="text-3xl font-extrabold text-slate-900 font-mono-numbers">{{ stats.total_dsc_count }}</span>
+            <span class="text-xs text-slate-500">keys across {{ stats.total_records }} GPs</span>
+          </div>
+          <!-- Live Split Badges: HYP vs Proxkey -->
+          <div class="mt-3 pt-3 border-t border-slate-100 flex items-center space-x-2 text-xs">
+            <span class="inline-flex items-center px-2.5 py-1 rounded-md font-semibold text-xs badge-hyp">
+              HYP: {{ stats.hyp_count }}
+            </span>
+            <span class="inline-flex items-center px-2.5 py-1 rounded-md font-semibold text-xs badge-proxkey">
+              Proxkey: {{ stats.proxkey_count }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Card 2: Total Billed Amount -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Billed Cost</span>
+            <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+              <i data-lucide="receipt" class="w-4 h-4"></i>
+            </div>
+          </div>
+          <div class="flex items-baseline space-x-2">
+            <span class="text-3xl font-extrabold text-slate-900 font-mono-numbers">{{ formatCurrency(stats.total_billed) }}</span>
+          </div>
+          <div class="mt-3 pt-3 border-t border-slate-100 text-xs text-slate-500 flex items-center justify-between">
+            <span>Cumulative Billed Value</span>
+            <span class="font-medium text-slate-700 font-mono-numbers">100% target</span>
+          </div>
+        </div>
+
+        <!-- Card 3: Total Collected -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold uppercase tracking-wider text-emerald-700">Total Collected</span>
+            <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+            </div>
+          </div>
+          <div class="flex items-baseline space-x-2">
+            <span class="text-3xl font-extrabold text-emerald-600 font-mono-numbers">{{ formatCurrency(stats.total_collected) }}</span>
+          </div>
+          <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+            <span class="text-emerald-700 font-medium">Recovery Rate:</span>
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800 font-mono-numbers">
+              {{ stats.collection_rate }}%
+            </span>
+          </div>
+        </div>
+
+        <!-- Card 4: Total Balance Pending -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold uppercase tracking-wider text-rose-600">Total Balance Due</span>
+            <div class="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
+              <i data-lucide="alert-circle" class="w-4 h-4"></i>
+            </div>
+          </div>
+          <div class="flex items-baseline space-x-2">
+            <span class="text-3xl font-extrabold text-rose-600 font-mono-numbers">{{ formatCurrency(stats.total_balance) }}</span>
+          </div>
+          <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+            <span>Pending/Partial GPs:</span>
+            <span class="font-bold text-rose-600 font-mono-numbers">
+              {{ (stats.status_counts.Pending || 0) + (stats.status_counts.Partial || 0) }} GPs
+            </span>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ------------------------------------------------------------- -->
+      <!-- TAB 1: MAIN DISTRIBUTION & PART-PAYMENT LEDGER                -->
+      <!-- ------------------------------------------------------------- -->
+      <div v-show="activeTab === 'ledger'" class="space-y-4">
+        
+        <!-- Filter and Search Toolbar -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+            
+            <!-- Search Input -->
+            <div class="lg:col-span-2 relative">
+              <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-3"></i>
+              <input 
+                type="text" 
+                v-model="filters.search" 
+                placeholder="Search GP, Person, Phone..." 
+                class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+              />
+            </div>
+
+            <!-- Mandal Filter Dropdown -->
+            <div>
+              <select 
+                v-model="filters.mandal" 
+                @change="fetchIssues"
+                class="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+              >
+                <option value="">All Mandals (20+)</option>
+                <option v-for="m in mandals" :key="m" :value="m">{{ m }}</option>
+              </select>
+            </div>
+
+            <!-- Token Variant Filter -->
+            <div>
+              <select 
+                v-model="filters.variant" 
+                @change="fetchIssues"
+                class="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+              >
+                <option value="">All Variants</option>
+                <option value="HYP">HYP Token</option>
+                <option value="Proxkey">Proxkey Token</option>
+              </select>
+            </div>
+
+            <!-- Payment Status Filter -->
+            <div>
+              <select 
+                v-model="filters.status" 
+                @change="fetchIssues"
+                class="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+              >
+                <option value="">All Statuses</option>
+                <option value="Pending">Pending (₹0 Paid)</option>
+                <option value="Partial">Partial Payment</option>
+                <option value="Paid">Fully Paid</option>
+              </select>
+            </div>
+
+            <!-- Reset Filters Action -->
+            <div class="flex items-center space-x-2">
+              <button 
+                @click="resetFilters" 
+                class="w-full py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-sm font-semibold flex items-center justify-center space-x-1 transition"
+                title="Reset all filters"
+              >
+                <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                <span>Reset</span>
+              </button>
+            </div>
+
+          </div>
+
+          <!-- Date Range Expansion Filters -->
+          <div class="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-100 text-xs text-slate-500">
+            <span class="font-medium text-slate-600">Filter Handover Date:</span>
+            <div class="flex items-center space-x-2">
+              <span>From:</span>
+              <input 
+                type="date" 
+                v-model="filters.fromDate" 
+                @change="fetchIssues" 
+                class="py-1 px-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+            <div class="flex items-center space-x-2">
+              <span>To:</span>
+              <input 
+                type="date" 
+                v-model="filters.toDate" 
+                @change="fetchIssues" 
+                class="py-1 px-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+            <span v-if="filters.fromDate || filters.toDate" class="text-blue-600 font-semibold cursor-pointer hover:underline" @click="filters.fromDate = ''; filters.toDate = ''; fetchIssues();">
+              Clear date range
+            </span>
+          </div>
+
+        </div>
+
+        <!-- Ledger Table Card -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          
+          <!-- Loading Indicator -->
+          <div v-if="isLoading" class="p-8 text-center text-slate-400">
+            <div class="inline-block animate-spin w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full mb-2"></div>
+            <p class="text-sm">Loading records...</p>
+          </div>
+
+          <!-- Empty State -->
+          <div v-else-if="issues.length === 0" class="p-12 text-center">
+            <div class="w-16 h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-4">
+              <i data-lucide="file-question" class="w-8 h-8"></i>
+            </div>
+            <h3 class="text-base font-bold text-slate-800 mb-1">No DSC Handover Records Found</h3>
+            <p class="text-sm text-slate-500 mb-4">No records match your selected filter criteria, or none have been entered yet.</p>
+            <button 
+              @click="openNewIssueModal"
+              class="inline-flex items-center space-x-1.5 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition"
+            >
+              <i data-lucide="plus" class="w-4 h-4"></i>
+              <span>Issue First Token</span>
+            </button>
+          </div>
+
+          <!-- Records Table -->
+          <div v-else class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <th class="py-3 px-4">Date Given</th>
+                  <th class="py-3 px-4">Mandal & Gram Panchayat</th>
+                  <th class="py-3 px-4">Recipient (Collected By)</th>
+                  <th class="py-3 px-4 text-center">Variant</th>
+                  <th class="py-3 px-4 text-center">Keys</th>
+                  <th class="py-3 px-4 text-right">Total (₹)</th>
+                  <th class="py-3 px-4 text-right">Paid (₹)</th>
+                  <th class="py-3 px-4 text-right">Balance (₹)</th>
+                  <th class="py-3 px-4 text-center">Status</th>
+                  <th class="py-3 px-4 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 text-sm">
+                <tr 
+                  v-for="issue in issues" 
+                  :key="issue.id" 
+                  class="hover:bg-blue-50/40 transition group"
+                >
+                  <!-- Date -->
+                  <td class="py-3 px-4 whitespace-nowrap font-mono-numbers text-xs text-slate-600">
+                    {{ formatDate(issue.token_given_date) }}
+                  </td>
+
+                  <!-- Mandal & GP -->
+                  <td class="py-3 px-4">
+                    <div class="font-bold text-slate-900">{{ issue.gram_panchayat_name || 'General / Mandal Level' }}</div>
+                    <div class="inline-flex items-center text-xs text-slate-500 font-medium">
+                      <span>{{ issue.mandal_name }} Mandal</span>
+                    </div>
+                  </td>
+
+                  <!-- Recipient Person Details -->
+                  <td class="py-3 px-4">
+                    <div class="font-semibold text-slate-900">{{ issue.recipient_name }}</div>
+                    <div class="flex items-center space-x-2 text-xs text-slate-500 mt-0.5">
+                      <span class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded text-[11px] font-medium">
+                        {{ issue.designation }}
+                      </span>
+                      <!-- Phone with clickable call link & WhatsApp -->
+                      <a 
+                        :href="'tel:' + issue.phone_number" 
+                        class="hover:text-blue-600 font-mono-numbers flex items-center space-x-0.5" 
+                        title="Click to Call"
+                      >
+                        <i data-lucide="phone" class="w-3 h-3"></i>
+                        <span>{{ issue.phone_number }}</span>
+                      </a>
+                      <a 
+                        :href="'https://wa.me/91' + issue.phone_number" 
+                        target="_blank" 
+                        class="text-emerald-600 hover:text-emerald-700" 
+                        title="Open WhatsApp Chat for Follow-up"
+                      >
+                        <i data-lucide="message-square" class="w-3 h-3"></i>
+                      </a>
+                    </div>
+                  </td>
+
+                  <!-- Variant Badge -->
+                  <td class="py-3 px-4 text-center whitespace-nowrap">
+                    <span 
+                      v-if="issue.token_variant === 'HYP'" 
+                      class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold badge-hyp"
+                    >
+                      <i data-lucide="cpu" class="w-3 h-3 mr-1"></i>
+                      HYP
+                    </span>
+                    <span 
+                      v-else 
+                      class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold badge-proxkey"
+                    >
+                      <i data-lucide="shield" class="w-3 h-3 mr-1"></i>
+                      Proxkey
+                    </span>
+                  </td>
+
+                  <!-- DSC Count & Unit Rate -->
+                  <td class="py-3 px-4 text-center whitespace-nowrap">
+                    <span class="font-bold text-slate-900 font-mono-numbers">{{ issue.dsc_count }}</span>
+                    <span class="text-xs text-slate-400 block font-mono-numbers">@ ₹{{ issue.unit_price }}</span>
+                  </td>
+
+                  <!-- Total Amount -->
+                  <td class="py-3 px-4 text-right whitespace-nowrap font-bold text-slate-900 font-mono-numbers">
+                    {{ formatCurrency(issue.total_amount) }}
+                  </td>
+
+                  <!-- Paid Amount (Clickable to open Ledger) -->
+                  <td class="py-3 px-4 text-right whitespace-nowrap">
+                    <button 
+                      @click="openPaymentLedger(issue)" 
+                      title="Click to view payment history"
+                      class="font-semibold text-emerald-600 hover:text-emerald-700 underline decoration-dotted font-mono-numbers"
+                    >
+                      {{ formatCurrency(issue.total_paid) }}
+                    </button>
+                    <span class="text-[10px] text-slate-400 block">
+                      {{ issue.payments ? issue.payments.length : 0 }} installments
+                    </span>
+                  </td>
+
+                  <!-- Balance Pending (Clickable to record payment) -->
+                  <td class="py-3 px-4 text-right whitespace-nowrap font-mono-numbers">
+                    <button 
+                      @click="openPaymentLedger(issue)"
+                      :class="issue.balance_amount > 0 ? 'text-rose-600 font-bold hover:text-rose-700' : 'text-slate-400 font-normal'"
+                      class="underline decoration-dotted"
+                      title="Click to settle/part-pay balance"
+                    >
+                      {{ formatCurrency(issue.balance_amount) }}
+                    </button>
+                  </td>
+
+                  <!-- Status Badge -->
+                  <td class="py-3 px-4 text-center whitespace-nowrap">
+                    <span 
+                      v-if="issue.payment_status === 'Paid'"
+                      class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800"
+                    >
+                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span>
+                      Paid
+                    </span>
+                    <span 
+                      v-else-if="issue.payment_status === 'Partial'"
+                      class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800"
+                    >
+                      <span class="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5"></span>
+                      Partial
+                    </span>
+                    <span 
+                      v-else
+                      class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-800"
+                    >
+                      <span class="w-1.5 h-1.5 rounded-full bg-rose-500 mr-1.5"></span>
+                      Pending
+                    </span>
+                  </td>
+
+                  <!-- Actions -->
+                  <td class="py-3 px-4 text-center whitespace-nowrap">
+                    <div class="flex items-center justify-center space-x-1">
+                      
+                      <!-- Quick + Payment Button -->
+                      <button 
+                        @click="openPaymentLedger(issue)"
+                        title="Add Part Payment / View Ledger"
+                        class="p-1.5 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 text-blue-600 rounded-lg transition"
+                      >
+                        <i data-lucide="credit-card" class="w-4 h-4"></i>
+                      </button>
+
+                      <!-- Edit Issue Record -->
+                      <button 
+                        @click="openEditIssueModal(issue)"
+                        title="Edit Details"
+                        class="p-1.5 hover:bg-slate-100 text-slate-500 hover:text-slate-800 rounded-lg transition"
+                      >
+                        <i data-lucide="edit-3" class="w-4 h-4"></i>
+                      </button>
+
+                      <!-- Delete Issue -->
+                      <button 
+                        @click="confirmDeleteIssue(issue)"
+                        title="Delete Record"
+                        class="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition"
+                      >
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                      </button>
+
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Table Footer Total Summary Row -->
+          <div class="bg-slate-50 px-4 py-3 border-t border-slate-200 flex flex-wrap items-center justify-between text-xs text-slate-600">
+            <div>
+              Showing <span class="font-bold text-slate-800 font-mono-numbers">{{ issues.length }}</span> Gram Panchayat distribution records
+            </div>
+            <div class="flex items-center space-x-4 font-mono-numbers">
+              <span>Total Billed: <strong class="text-slate-900">{{ formatCurrency(stats.total_billed) }}</strong></span>
+              <span>Total Paid: <strong class="text-emerald-700">{{ formatCurrency(stats.total_collected) }}</strong></span>
+              <span>Balance: <strong class="text-rose-600">{{ formatCurrency(stats.total_balance) }}</strong></span>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- ------------------------------------------------------------- -->
+      <!-- TAB 2: MANDAL-WISE SUMMARY ABSTRACT                           -->
+      <!-- ------------------------------------------------------------- -->
+      <div v-show="activeTab === 'mandals'" class="space-y-4">
+        
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+          <div>
+            <h2 class="text-base font-bold text-slate-900">Mandal-Wise Recovery Abstract</h2>
+            <p class="text-xs text-slate-500">Summary overview of DSC counts, billed totals, and pending balances mandal by mandal</p>
+          </div>
+          <button 
+            @click="exportToExcel" 
+            class="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-semibold hover:bg-emerald-100 transition"
+          >
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span>Export Abstract</span>
+          </button>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <th class="py-3 px-4">Mandal Name</th>
+                  <th class="py-3 px-4 text-center">GPs Covered</th>
+                  <th class="py-3 px-4 text-center">HYP Keys</th>
+                  <th class="py-3 px-4 text-center">Proxkey Keys</th>
+                  <th class="py-3 px-4 text-center">Total DSCs</th>
+                  <th class="py-3 px-4 text-right">Total Billed (₹)</th>
+                  <th class="py-3 px-4 text-right">Total Paid (₹)</th>
+                  <th class="py-3 px-4 text-right">Pending Balance (₹)</th>
+                  <th class="py-3 px-4 text-center">Collection %</th>
+                  <th class="py-3 px-4 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 text-sm">
+                <tr 
+                  v-for="m in mandalSummaries" 
+                  :key="m.mandal_name"
+                  class="hover:bg-slate-50/80 transition"
+                >
+                  <td class="py-3 px-4 font-bold text-slate-900">
+                    {{ m.mandal_name }}
+                  </td>
+                  <td class="py-3 px-4 text-center font-mono-numbers text-slate-600">
+                    {{ m.gp_count }}
+                  </td>
+                  <td class="py-3 px-4 text-center font-mono-numbers">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-indigo-50 text-indigo-700">
+                      {{ m.hyp_keys }}
+                    </span>
+                  </td>
+                  <td class="py-3 px-4 text-center font-mono-numbers">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-teal-50 text-teal-700">
+                      {{ m.proxkey_keys }}
+                    </span>
+                  </td>
+                  <td class="py-3 px-4 text-center font-bold text-slate-800 font-mono-numbers">
+                    {{ m.total_dscs }}
+                  </td>
+                  <td class="py-3 px-4 text-right font-medium text-slate-900 font-mono-numbers">
+                    {{ formatCurrency(m.total_billed) }}
+                  </td>
+                  <td class="py-3 px-4 text-right font-semibold text-emerald-600 font-mono-numbers">
+                    {{ formatCurrency(m.total_paid) }}
+                  </td>
+                  <td class="py-3 px-4 text-right font-bold text-rose-600 font-mono-numbers">
+                    {{ formatCurrency(m.pending_balance) }}
+                  </td>
+                  <td class="py-3 px-4 text-center">
+                    <div class="flex items-center justify-center space-x-2">
+                      <div class="w-16 bg-slate-200 rounded-full h-2 overflow-hidden">
+                        <div 
+                          class="bg-emerald-500 h-2 rounded-full" 
+                          :style="{ width: Math.min(100, m.collection_rate) + '%' }"
+                        ></div>
+                      </div>
+                      <span class="text-xs font-semibold font-mono-numbers text-slate-700">{{ m.collection_rate }}%</span>
+                    </div>
+                  </td>
+                  <td class="py-3 px-4 text-center">
+                    <button 
+                      @click="filterByMandalFromAbstract(m.mandal_name)"
+                      class="text-xs text-blue-600 hover:text-blue-800 font-semibold inline-flex items-center space-x-1"
+                    >
+                      <span>View GPs</span>
+                      <i data-lucide="arrow-right" class="w-3 h-3"></i>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+    </main>
+
+    <!-- ------------------------------------------------------------- -->
+    <!-- MODAL: ISSUE NEW TOKEN / EDIT HANDOVER RECORD                -->
+    <!-- ------------------------------------------------------------- -->
+    <div v-if="showIssueModal" class="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 sm:p-8 border border-slate-200 my-8">
+        
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <i data-lucide="key" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h3 class="text-lg font-bold text-slate-900">
+                {{ isEditMode ? 'Edit DSC Handover Record' : 'Issue New DSC / USB Token' }}
+              </h3>
+              <p class="text-xs text-slate-500">Record token handover details, recipient information, and optional initial payment</p>
+            </div>
+          </div>
+          <button @click="showIssueModal = false" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <form @submit.prevent="saveIssue" class="space-y-4">
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            
+            <!-- Handover Date -->
+            <div>
+              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                Token Given Date *
+              </label>
+              <input 
+                type="date" 
+                v-model="issueForm.token_given_date" 
+                required 
+                class="w-full py-2.5 px-3 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition"
+              />
+            </div>
+
+            <!-- Mandal Dropdown -->
+            <div>
+              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                Mandal Name *
+              </label>
+              <select 
+                v-model="issueForm.mandal_name" 
+                @change="onMandalChangeInForm"
+                required 
+                class="w-full py-2.5 px-3 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition"
+              >
+                <option v-for="m in mandals" :key="m" :value="m">{{ m }}</option>
+                <option value="__custom__">+ Enter Custom Mandal...</option>
+              </select>
+            </div>
+
+          </div>
+
+          <!-- Custom Mandal Input if chosen -->
+          <div v-if="issueForm.mandal_name === '__custom__'">
+            <label class="block text-xs font-bold text-blue-700 uppercase tracking-wider mb-1">
+              Custom Mandal Name *
+            </label>
+            <input 
+              type="text" 
+              v-model="issueForm.custom_mandal" 
+              placeholder="e.g. Kusumanchi North" 
+              required 
+              class="w-full py-2.5 px-3 bg-blue-50/50 border border-blue-300 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+          </div>
+
+          <!-- Gram Panchayat Name with Autocomplete Datalist -->
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+              Gram Panchayat (GP) Name (Optional)
+            </label>
+            <input 
+              type="text" 
+              v-model="issueForm.gram_panchayat_name" 
+              list="gp-autocomplete-list" 
+              placeholder="Type or select GP name (optional)..." 
+              class="w-full py-2.5 px-3 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition"
+            />
+            <datalist id="gp-autocomplete-list">
+              <option v-for="gp in availableGps" :key="gp" :value="gp"></option>
+            </datalist>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            
+            <!-- Recipient Person Name -->
+            <div class="sm:col-span-1">
+              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                Person Taken Token *
+              </label>
+              <input 
+                type="text" 
+                v-model="issueForm.recipient_name" 
+                placeholder="Full Name" 
+                required 
+                class="w-full py-2.5 px-3 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition"
+              />
+            </div>
+
+            <!-- Designation -->
+            <div class="sm:col-span-1">
+              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                Designation *
+              </label>
+              <select 
+                v-model="issueForm.designation" 
+                required 
+                class="w-full py-2.5 px-3 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition"
+              >
+                <option v-for="d in designations" :key="d" :value="d">{{ d }}</option>
+              </select>
+            </div>
+
+            <!-- Phone Number -->
+            <div class="sm:col-span-1">
+              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                Mobile Number *
+              </label>
+              <input 
+                type="tel" 
+                v-model="issueForm.phone_number" 
+                placeholder="10-digit Mobile" 
+                required 
+                class="w-full py-2.5 px-3 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition font-mono-numbers"
+              />
+            </div>
+
+          </div>
+
+          <!-- Token Variant Segmented Toggle Buttons -->
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+              Token Variant *
+            </label>
+            <div class="grid grid-cols-2 gap-3">
+              <button 
+                type="button" 
+                @click="issueForm.token_variant = 'HYP'" 
+                :class="issueForm.token_variant === 'HYP' ? 'badge-hyp border-transparent ring-2 ring-indigo-400' : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'"
+                class="py-3 px-4 rounded-xl border text-sm font-bold flex items-center justify-center space-x-2 transition"
+              >
+                <i data-lucide="cpu" class="w-4 h-4"></i>
+                <span>HYP Token</span>
+              </button>
+
+              <button 
+                type="button" 
+                @click="issueForm.token_variant = 'Proxkey'" 
+                :class="issueForm.token_variant === 'Proxkey' ? 'badge-proxkey border-transparent ring-2 ring-teal-400' : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'"
+                class="py-3 px-4 rounded-xl border text-sm font-bold flex items-center justify-center space-x-2 transition"
+              >
+                <i data-lucide="shield" class="w-4 h-4"></i>
+                <span>Proxkey Token</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Pricing: DSC Count, Rate, Auto-Calculated Total -->
+          <div class="grid grid-cols-3 gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200">
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">No. of DSCs</label>
+              <input 
+                type="number" 
+                v-model.number="issueForm.dsc_count" 
+                min="1" 
+                required 
+                class="w-full py-2 px-3 bg-white border border-slate-300 rounded-lg text-sm text-center font-bold font-mono-numbers"
+              />
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">Rate / Key (₹)</label>
+              <input 
+                type="number" 
+                v-model.number="issueForm.unit_price" 
+                min="0" 
+                step="50" 
+                required 
+                class="w-full py-2 px-3 bg-white border border-slate-300 rounded-lg text-sm text-right font-bold font-mono-numbers"
+              />
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-blue-800 mb-1">Total Cost (₹)</label>
+              <div class="py-2 px-3 bg-blue-100/70 border border-blue-200 rounded-lg text-sm text-right font-extrabold text-blue-900 font-mono-numbers">
+                {{ formatCurrency(calculatedTotalAmount) }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Remarks -->
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+              Remarks / Token S/N / Validity (Optional)
+            </label>
+            <input 
+              type="text" 
+              v-model="issueForm.remarks" 
+              placeholder="e.g. Valid 2 yrs; USB S/N #..." 
+              class="w-full py-2 px-3 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:bg-white outline-none"
+            />
+          </div>
+
+          <!-- Optional Initial Payment on Creation (Only when adding new) -->
+          <div v-if="!isEditMode" class="pt-2 border-t border-slate-200">
+            <div class="flex items-center justify-between mb-3">
+              <label class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center space-x-1.5 cursor-pointer">
+                <input type="checkbox" v-model="issueForm.has_initial_payment" class="rounded text-blue-600 focus:ring-blue-500 w-4 h-4">
+                <span>Record Initial Part-Payment at Handover</span>
+              </label>
+              <span v-if="issueForm.has_initial_payment" class="text-xs text-emerald-600 font-semibold">
+                Will create 1st payment entry
+              </span>
+            </div>
+
+            <!-- Initial Payment Sub-form -->
+            <div v-if="issueForm.has_initial_payment" class="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 bg-emerald-50/70 rounded-xl border border-emerald-200">
+              <div>
+                <label class="block text-xs font-bold text-emerald-900 mb-1">Amount Paid (₹) *</label>
+                <input 
+                  type="number" 
+                  v-model.number="issueForm.initial_amount_paid" 
+                  min="1" 
+                  :max="calculatedTotalAmount"
+                  placeholder="₹ Amount" 
+                  class="w-full py-2 px-3 bg-white border border-emerald-300 rounded-lg text-sm font-bold font-mono-numbers text-right text-emerald-800 outline-none"
+                />
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-emerald-900 mb-1">Payment Mode</label>
+                <select 
+                  v-model="issueForm.initial_payment_mode"
+                  class="w-full py-2 px-3 bg-white border border-emerald-300 rounded-lg text-sm outline-none text-slate-700"
+                >
+                  <option value="Cash">Cash</option>
+                  <option value="UPI / PhonePe / GPay">UPI / PhonePe / GPay</option>
+                  <option value="Bank Transfer">Bank Transfer</option>
+                  <option value="Cheque">Cheque</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-emerald-900 mb-1">Payment Note</label>
+                <input 
+                  type="text" 
+                  v-model="issueForm.initial_payment_note" 
+                  placeholder="e.g. Paid at MPDO" 
+                  class="w-full py-2 px-3 bg-white border border-emerald-300 rounded-lg text-sm outline-none text-slate-700"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal Actions -->
+          <div class="pt-4 border-t border-slate-100 flex items-center justify-end space-x-3">
+            <button 
+              type="button" 
+              @click="showIssueModal = false" 
+              class="px-4 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-semibold transition"
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit" 
+              class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-sm font-semibold shadow-md shadow-blue-500/20 transition flex items-center space-x-2"
+            >
+              <i data-lucide="check" class="w-4 h-4"></i>
+              <span>{{ isEditMode ? 'Update Record' : 'Save Handover Record' }}</span>
+            </button>
+          </div>
+
+        </form>
+
+      </div>
+    </div>
+
+    <!-- ------------------------------------------------------------- -->
+    <!-- DRAWER / MODAL: DATE-WISE PART-PAYMENT LEDGER                 -->
+    <!-- ------------------------------------------------------------- -->
+    <div v-if="showPaymentModal" class="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full border border-slate-200 overflow-hidden my-6">
+        
+        <!-- Drawer Header Banner -->
+        <div class="bg-linear-to-r from-slate-900 to-blue-950 text-white p-6">
+          <div class="flex items-start justify-between">
+            <div>
+              <div class="flex items-center space-x-2 mb-1">
+                <span 
+                  v-if="activeIssue.token_variant === 'HYP'" 
+                  class="badge-hyp px-2 py-0.5 rounded text-[11px] font-bold"
+                >
+                  HYP
+                </span>
+                <span 
+                  v-else 
+                  class="badge-proxkey px-2 py-0.5 rounded text-[11px] font-bold"
+                >
+                  Proxkey
+                </span>
+                <span class="text-blue-300 text-xs font-medium">{{ activeIssue.mandal_name }} Mandal</span>
+              </div>
+              <h2 class="text-xl sm:text-2xl font-extrabold">{{ activeIssue.gram_panchayat_name ? (activeIssue.gram_panchayat_name + ' GP') : (activeIssue.mandal_name + ' / General') }}</h2>
+              <div class="text-xs text-slate-300 mt-1 flex flex-wrap items-center gap-3">
+                <span>Handed to: <strong class="text-white">{{ activeIssue.recipient_name }}</strong> ({{ activeIssue.designation }})</span>
+                <span>Phone: <strong class="text-white font-mono-numbers">{{ activeIssue.phone_number }}</strong></span>
+                <span>Given: <strong class="text-white font-mono-numbers">{{ formatDate(activeIssue.token_given_date) }}</strong></span>
+              </div>
+            </div>
+            
+            <button @click="showPaymentModal = false" class="text-slate-400 hover:text-white p-1 rounded-lg">
+              <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+          </div>
+
+          <!-- Financial Snapshot Bar -->
+          <div class="grid grid-cols-3 gap-2 mt-5 p-3 bg-white/10 rounded-xl backdrop-blur-xs text-center">
+            <div>
+              <span class="text-[11px] text-slate-300 uppercase block">Total Cost</span>
+              <span class="text-base sm:text-lg font-extrabold font-mono-numbers">{{ formatCurrency(activeIssue.total_amount) }}</span>
+            </div>
+            <div>
+              <span class="text-[11px] text-emerald-300 uppercase block">Total Paid</span>
+              <span class="text-base sm:text-lg font-extrabold text-emerald-400 font-mono-numbers">{{ formatCurrency(activeIssue.total_paid) }}</span>
+            </div>
+            <div>
+              <span class="text-[11px] text-rose-300 uppercase block">Balance Due</span>
+              <span class="text-base sm:text-lg font-extrabold text-rose-400 font-mono-numbers">{{ formatCurrency(activeIssue.balance_amount) }}</span>
+            </div>
+          </div>
+
+          <!-- Progress Bar -->
+          <div class="mt-3">
+            <div class="flex items-center justify-between text-[11px] text-slate-300 mb-1">
+              <span>Payment Progress</span>
+              <span class="font-bold text-white font-mono-numbers">
+                {{ Math.round((activeIssue.total_paid / activeIssue.total_amount) * 100) }}% Paid
+              </span>
+            </div>
+            <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+              <div 
+                class="bg-emerald-400 h-2 rounded-full transition-all duration-300" 
+                :style="{ width: Math.min(100, Math.round((activeIssue.total_paid / activeIssue.total_amount) * 100)) + '%' }"
+              ></div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="p-6 space-y-6">
+
+          <!-- Section 1: Add New Installment Form -->
+          <div class="p-4 bg-slate-50 rounded-xl border border-slate-200">
+            <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3 flex items-center space-x-1.5">
+              <i data-lucide="plus-circle" class="w-4 h-4 text-blue-600"></i>
+              <span>Record New Part-Payment Installment</span>
+            </h4>
+
+            <form @submit.prevent="recordPartPayment" class="space-y-3">
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                
+                <!-- Installment Date -->
+                <div>
+                  <label class="block text-xs font-semibold text-slate-600 mb-1">Payment Date *</label>
+                  <input 
+                    type="date" 
+                    v-model="newPayment.payment_date" 
+                    required 
+                    class="w-full py-2 px-3 bg-white border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 font-mono-numbers"
+                  />
+                </div>
+
+                <!-- Amount Paid with Balance fill button -->
+                <div>
+                  <div class="flex items-center justify-between mb-1">
+                    <label class="text-xs font-semibold text-slate-600">Amount Paid (₹) *</label>
+                    <button 
+                      v-if="activeIssue.balance_amount > 0"
+                      type="button" 
+                      @click="fillFullBalance" 
+                      class="text-[11px] text-blue-600 hover:text-blue-800 font-semibold"
+                    >
+                      Fill Full Bal.
+                    </button>
+                  </div>
+                  <input 
+                    type="number" 
+                    v-model.number="newPayment.amount_paid" 
+                    @input="validatePaymentAmount"
+                    min="1" 
+                    step="50" 
+                    required 
+                    placeholder="₹ 0" 
+                    class="w-full py-2 px-3 bg-white border border-slate-300 rounded-lg text-sm text-right font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-500 font-mono-numbers"
+                  />
+                </div>
+
+                <!-- Payment Mode -->
+                <div>
+                  <label class="block text-xs font-semibold text-slate-600 mb-1">Payment Mode *</label>
+                  <select 
+                    v-model="newPayment.payment_mode" 
+                    required 
+                    class="w-full py-2 px-3 bg-white border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="Cash">Cash</option>
+                    <option value="UPI / PhonePe / GPay">UPI / PhonePe / GPay</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                    <option value="Cheque">Cheque</option>
+                  </select>
+                </div>
+
+              </div>
+
+              <!-- Quick Amount Preset Chips -->
+              <div class="flex items-center space-x-2 text-xs">
+                <span class="text-slate-400">Quick Fill:</span>
+                <button 
+                  type="button" 
+                  @click="setPaymentAmount(500)" 
+                  class="px-2 py-0.5 bg-slate-200 hover:bg-slate-300 rounded text-slate-700 font-mono-numbers"
+                >₹500</button>
+                <button 
+                  type="button" 
+                  @click="setPaymentAmount(1000)" 
+                  class="px-2 py-0.5 bg-slate-200 hover:bg-slate-300 rounded text-slate-700 font-mono-numbers"
+                >₹1,000</button>
+                <button 
+                  type="button" 
+                  @click="setPaymentAmount(1500)" 
+                  class="px-2 py-0.5 bg-slate-200 hover:bg-slate-300 rounded text-slate-700 font-mono-numbers"
+                >₹1,500</button>
+                <button 
+                  v-if="activeIssue.balance_amount > 0"
+                  type="button" 
+                  @click="fillFullBalance" 
+                  class="px-2 py-0.5 bg-blue-100 hover:bg-blue-200 rounded text-blue-800 font-semibold font-mono-numbers"
+                >Full Balance (₹{{ activeIssue.balance_amount }})</button>
+              </div>
+
+              <!-- Payment Note / Reference -->
+              <div class="flex items-center space-x-2">
+                <input 
+                  type="text" 
+                  v-model="newPayment.payment_note" 
+                  placeholder="Payment note / UPI Transaction ref / Paid by..." 
+                  class="flex-1 py-2 px-3 bg-white border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+
+                <button 
+                  type="submit" 
+                  class="py-2 px-4 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg text-sm font-semibold transition flex items-center space-x-1 shrink-0"
+                >
+                  <i data-lucide="check" class="w-4 h-4"></i>
+                  <span>Record Payment</span>
+                </button>
+              </div>
+
+              <!-- Overpayment warning message -->
+              <div v-if="paymentWarning" class="text-amber-700 text-xs font-medium bg-amber-50 p-2 rounded-lg border border-amber-200">
+                {{ paymentWarning }}
+              </div>
+
+            </form>
+          </div>
+
+          <!-- Section 2: Date-Wise Payment History Table -->
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center space-x-1.5">
+                <i data-lucide="history" class="w-4 h-4 text-slate-600"></i>
+                <span>Chronological Payment History Log</span>
+              </h4>
+              <span class="text-xs text-slate-500 font-medium font-mono-numbers">
+                {{ activeIssue.payments ? activeIssue.payments.length : 0 }} entries recorded
+              </span>
+            </div>
+
+            <!-- Empty Payments State -->
+            <div v-if="!activeIssue.payments || activeIssue.payments.length === 0" class="p-6 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300">
+              <i data-lucide="clock" class="w-8 h-8 text-slate-400 mx-auto mb-2"></i>
+              <p class="text-sm font-semibold text-slate-700">No Payments Recorded Yet</p>
+              <p class="text-xs text-slate-400 mt-0.5">Use the form above to record the first part-payment installment.</p>
+            </div>
+
+            <!-- Payments Table -->
+            <div v-else class="border border-slate-200 rounded-xl overflow-hidden">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    <th class="py-2.5 px-3">#</th>
+                    <th class="py-2.5 px-3">Payment Date</th>
+                    <th class="py-2.5 px-3 text-right">Amount Paid</th>
+                    <th class="py-2.5 px-3 text-center">Payment Mode</th>
+                    <th class="py-2.5 px-3">Note / Ref</th>
+                    <th class="py-2.5 px-3 text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 text-sm">
+                  <tr v-for="(p, idx) in activeIssue.payments" :key="p.id" class="hover:bg-slate-50/80 transition">
+                    <td class="py-2.5 px-3 font-mono-numbers text-xs text-slate-400">{{ idx + 1 }}</td>
+                    <td class="py-2.5 px-3 font-mono-numbers text-xs font-medium text-slate-800">
+                      {{ formatDate(p.payment_date) }}
+                    </td>
+                    <td class="py-2.5 px-3 text-right font-bold text-emerald-600 font-mono-numbers">
+                      {{ formatCurrency(p.amount_paid) }}
+                    </td>
+                    <td class="py-2.5 px-3 text-center">
+                      <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-700">
+                        {{ p.payment_mode }}
+                      </span>
+                    </td>
+                    <td class="py-2.5 px-3 text-xs text-slate-600">
+                      {{ p.payment_note || '-' }}
+                    </td>
+                    <td class="py-2.5 px-3 text-center">
+                      <button 
+                        @click="confirmDeletePayment(p)" 
+                        title="Delete this installment"
+                        class="p-1 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded transition"
+                      >
+                        <i data-lucide="trash" class="w-3.5 h-3.5"></i>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- Drawer Footer -->
+        <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex items-center justify-between">
+          <div class="text-xs text-slate-500">
+            Payment updates auto-recalculate the master register.
+          </div>
+          <button 
+            @click="showPaymentModal = false" 
+            class="px-5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-xl text-sm font-semibold transition"
+          >
+            Close Ledger
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ------------------------------------------------------------- -->
+    <!-- MODAL: DELETE CONFIRMATION                                     -->
+    <!-- ------------------------------------------------------------- -->
+    <div v-if="showDeleteModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center border border-slate-100">
+        <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
+          <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+        </div>
+        <h3 class="text-lg font-bold text-slate-900 mb-1">Confirm Deletion</h3>
+        <p class="text-xs text-slate-500 mb-4">
+          Are you sure you want to delete <strong class="text-slate-800">{{ itemToDelete ? itemToDelete.label : '' }}</strong>? This action cannot be undone.
+        </p>
+        <div class="flex items-center space-x-3">
+          <button 
+            @click="showDeleteModal = false" 
+            class="flex-1 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-semibold transition"
+          >
+            Cancel
+          </button>
+          <button 
+            @click="executeDelete" 
+            class="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-sm font-semibold transition"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ------------------------------------------------------------- -->
+    <!-- FLOATING TOAST NOTIFICATION                                   -->
+    <!-- ------------------------------------------------------------- -->
+    <div 
+      v-if="toast.show" 
+      class="fixed bottom-5 right-5 z-50 flex items-center space-x-2 py-3 px-4 rounded-xl shadow-xl text-sm font-medium transition transform duration-300"
+      :class="{
+        'bg-slate-900 text-white': toast.type === 'info',
+        'bg-emerald-600 text-white': toast.type === 'success',
+        'bg-rose-600 text-white': toast.type === 'error'
+      }"
+    >
+      <i v-if="toast.type === 'success'" data-lucide="check-circle" class="w-4 h-4"></i>
+      <i v-else-if="toast.type === 'error'" data-lucide="alert-circle" class="w-4 h-4"></i>
+      <i v-else data-lucide="info" class="w-4 h-4"></i>
+      <span>{{ toast.message }}</span>
+    </div>
+
+  </div>
+
+  <!-- App Javascript -->
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
