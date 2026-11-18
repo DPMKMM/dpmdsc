@@ -220,7 +220,7 @@ createApp({
     // -----------------------------------------------------------------
     const fetchMandals = async () => {
       try {
-        const res = await fetch("/api/metadata/mandals");
+        const res = await fetch("/api/metadata/mandals", { cache: "no-store" });
         mandals.value = await res.json();
       } catch (err) {
         console.error("Failed to load mandals", err);
@@ -230,7 +230,7 @@ createApp({
     const fetchGps = async (mandalName = "") => {
       try {
         const url = mandalName ? `/api/metadata/gps?mandal=${encodeURIComponent(mandalName)}` : "/api/metadata/gps";
-        const res = await fetch(url);
+        const res = await fetch(url, { cache: "no-store" });
         availableGps.value = await res.json();
       } catch (err) {
         console.error("Failed to load GPs", err);
@@ -239,7 +239,7 @@ createApp({
 
     const fetchStats = async () => {
       try {
-        const res = await fetch("/api/analytics/stats");
+        const res = await fetch("/api/analytics/stats", { cache: "no-store" });
         stats.value = await res.json();
       } catch (err) {
         console.error("Failed to load stats", err);
@@ -248,7 +248,7 @@ createApp({
 
     const fetchMandalSummaries = async () => {
       try {
-        const res = await fetch("/api/analytics/mandals");
+        const res = await fetch("/api/analytics/mandals", { cache: "no-store" });
         mandalSummaries.value = await res.json();
       } catch (err) {
         console.error("Failed to load mandal abstract", err);
@@ -266,7 +266,7 @@ createApp({
         if (filters.value.fromDate) params.append("from_date", filters.value.fromDate);
         if (filters.value.toDate) params.append("to_date", filters.value.toDate);
 
-        const res = await fetch(`/api/issues?${params.toString()}`);
+        const res = await fetch(`/api/issues?${params.toString()}`, { cache: "no-store" });
         issues.value = await res.json();
       } catch (err) {
         showToast("Error loading distribution records", "error");
@@ -280,7 +280,7 @@ createApp({
 
     const fetchStock = async () => {
       try {
-        const res = await fetch("/api/stock");
+        const res = await fetch("/api/stock", { cache: "no-store" });
         stock.value = await res.json();
       } catch (err) {
         console.error("Failed to load stock data", err);
@@ -496,7 +496,7 @@ createApp({
     const openPaymentLedger = async (issue) => {
       try {
         // Fetch fresh copy to ensure payments are 100% current
-        const res = await fetch(`/api/issues/${issue.id}`);
+        const res = await fetch(`/api/issues/${issue.id}`, { cache: "no-store" });
         if (!res.ok) throw new Error("Could not load details");
         activeIssue.value = await res.json();
 
@@ -563,7 +563,7 @@ createApp({
 
         showToast(`Payment of ₹${amt} recorded successfully`, "success");
         // Reload active issue
-        const updatedRes = await fetch(`/api/issues/${activeIssue.value.id}`);
+        const updatedRes = await fetch(`/api/issues/${activeIssue.value.id}`, { cache: "no-store" });
         activeIssue.value = await updatedRes.json();
 
         // Reset form
@@ -603,7 +603,7 @@ createApp({
 
           // Refresh active issue if modal is open
           if (activeIssue.value) {
-            const updatedRes = await fetch(`/api/issues/${activeIssue.value.id}`);
+            const updatedRes = await fetch(`/api/issues/${activeIssue.value.id}`, { cache: "no-store" });
             activeIssue.value = await updatedRes.json();
             newPayment.value.amount_paid = activeIssue.value.balance_amount;
           }

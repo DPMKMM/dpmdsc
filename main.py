@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from backend.database import engine, get_db, Base, SessionLocal
-from backend.models import DscIssue, DscPayment
+from backend.models import DscIssue, DscPayment, DscStock
 from backend import crud, schemas, export
 from backend.seed_data import KHAMMAM_MANDALS, DEFAULT_DESIGNATIONS
 
@@ -23,6 +23,16 @@ app = FastAPI(
     description="Administrative web dashboard for tracking Digital Signature Certificate & USB token distribution and date-wise part-payments.",
     version="1.0.0",
 )
+
+@app.middleware("http")
+async def add_no_cache_headers(request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
 
 # Static and template setup
 os.makedirs("static/css", exist_ok=True)
